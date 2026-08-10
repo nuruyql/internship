@@ -60,3 +60,45 @@ class ReviewSerializers(serializers.ModelSerializer):
         model = Review
         fields = "__all__"
         read_only_fields = ["user","created_at"]
+
+class CartItemSerializers(serializers.ModelSerializer):
+    total_price = serializers.SerializerMethodField()
+
+
+
+    class Meta:
+        model = CartItem
+        fields="__all__"
+        read_only_fields = ["cart"]
+
+
+
+    def get_total_price(self,obj):
+        return obj.phone.price * obj.quantity
+    
+class CartSerializers(serializers.ModelSerializer):
+
+
+    items = CartItemSerializers(
+        many=True,
+        read_only=True
+    )
+
+
+
+    total_price = serializers.SerializerMethodField()
+
+
+    class Meta:
+        model = CartItem
+        fields = "__all__"
+
+        read_only_fields = ["user"]
+
+
+
+    def get_total_price(self,obj):
+        return  sum(
+            item.phone.price * item.quantity
+            for item in obj.items.all( )
+        )
