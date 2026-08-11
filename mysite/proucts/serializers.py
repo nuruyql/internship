@@ -75,6 +75,30 @@ class CartItemSerializers(serializers.ModelSerializer):
 
     def get_total_price(self,obj):
         return obj.phone.price * obj.quantity
+
+    def validate_qunatity(self,value):
+        if value < 1:
+            raise serializers.ValidationError(
+                "must not be lower than 1   "
+            )
+        return value
+
+    def validate(self,attrs):
+
+        phone = attrs.get(
+            "phone",
+            getattr(self.instance,"phone",None)
+        )
+        quantity = attrs.get(
+            "quantity",
+            getattr(self.instance,"quantity",1)
+        )
+
+        if phone and quantity > phone.stock:
+            raise serializers.ValidationError({
+                "quantity":f"we  have only {phone.stock}"
+            })
+        return attrs
     
 class CartSerializers(serializers.ModelSerializer):
 
@@ -94,6 +118,13 @@ class CartSerializers(serializers.ModelSerializer):
         fields = "__all__"
 
         read_only_fields = ["user"]
+
+        constraits = [
+            models.UniqueConstraint(
+                fields=["carts","phone"],
+                name="unique_phone_in_cart"
+            )
+        ]
 
 
 
