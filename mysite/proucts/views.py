@@ -6,7 +6,9 @@ from .permissions import IsOwnerOrReadOnly, IsAdminOrReadOnly,IsReviewOwnerOrRea
 from .serializers import *
 from .models import *
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
 from django.db.models import  Avg
+from django.db import transaction
 # Create your views here.
 
 class PhoneViewSet(ModelViewSet):
@@ -77,3 +79,63 @@ class CartItemViewSet(ModelViewSet):
             user=self.request.user
         )
         serializer.save(cart=cart)
+
+
+class OrderViewSet(ModelViewSet):
+    serializer_class = OrderSerializers
+    permission_classes=[IsAuthenticated]
+
+    def get_queryset(self):
+        return Order.objects.filter(
+            user=self.request.user
+        ).prefetch_related("items")
+
+    @transaction.atomic
+    def perform_create(self,serializer):
+        try:
+            cart = Cart.objects.get(
+                user=self.request.user
+            )
+
+        except Cart.DoesNotExist:
+            raise ValidationError(
+                "there is no cart"
+            )
+        cart_items = cart.items.select_related("phone")
+
+
+        if not cart_items.exists():
+            raise ValidationError(
+                "empty cart"
+            )
+        for item in cart_items:
+            if item.quantity > item.phone.stock:
+                raise ValidationError({
+                    "stock": (
+                        f"{item.phone}: in a garage",
+                        f"{item.phone.stock} stock"
+                    )
+                })
+
+        order = serializer.save(
+                user=self.request.user
+            )
+
+
+        for item in cart_items:
+                phone  = item.phone
+
+
+                OrderItem.objects.create(
+                    order=order,
+                    phone=phone,
+                    quantity=item.quantity,
+                    price=phone.price
+                )
+
+                phone.stock -= item.quantity
+                phone.save()
+
+
+
+        cart_items.delete()
