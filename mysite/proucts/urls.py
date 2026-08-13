@@ -11,7 +11,7 @@ router.register("reviews",ReviewViewSet,basename="review"),
 router.register("cart",CartvViewSet,basename="cart")
 router.register("cart-items",CartItemViewSet,basename="cart-item")
 router.register("orders",OrderViewSet,basename="orders")
-
+router.register("payments",PaymentViewSet,basename="payments")
 urlpatterns =  [
     path("",include(router.urls)),
 ]

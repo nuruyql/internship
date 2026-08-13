@@ -125,3 +125,35 @@ class OrderItem(models.Model):
     )
     def __str__(self):
         return f"{self.phone} - {self.quantity}"
+
+
+class Payment(models.Model):
+    STATUS_CHOICES = [
+        ("pending","Pending"),
+        ("paid","Paid"),
+        ("failed","Failed")
+    ]
+
+    order = models.OneToOneField(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="payment"
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending"
+    )
+
+    payment_method = models.CharField(
+        max_length=50
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    paid_at = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    def __str__(self):
+        return f"payment for order #{self.order.id}"

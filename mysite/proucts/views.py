@@ -9,6 +9,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django.db.models import  Avg
 from django.db import transaction
+from django.utils import timezone
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import status
 # Create your views here.
 
 class PhoneViewSet(ModelViewSet):
@@ -139,3 +143,48 @@ class OrderViewSet(ModelViewSet):
 
 
         cart_items.delete()
+
+
+
+class PaymentViewSet(ModelViewSet):
+    serializer_class= PaymentSerializers
+    permission_classes=[IsAuthenticated]
+
+    def get_queryset(self):
+        return Payment.objects.filter(
+            order__user=self.request.user
+        ).select_related("order")
+
+    def perform_create(self, serializer):
+        order = serializer.validated_data["order"]
+
+        if order.user != self.request.user:
+            raise ValidationError(
+                "It is not your order"
+            )
+
+        serializer.save()
+
+
+    @action(
+            detail=True,
+            methods=["post"]
+        )
+    def pay(self,request,pk=None):
+            payment = self.get_object()
+
+            if payment.status == "paid":
+                raise ValidationError(
+                "Payment is alread paid"
+                )
+            payment.status = "paid"
+            payment.paid_at = timezone.now()
+
+            payment.save(
+                update_fields=["status","paid_at"]
+            )
+
+            return Response(
+                self.get_serializer(payment).data,
+                status=status.HTTP_200_OK
+            )

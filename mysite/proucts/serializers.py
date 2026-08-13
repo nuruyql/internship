@@ -164,3 +164,12 @@ class OrderSerializers(serializers.ModelSerializer):
             item.price * item.quantity
             for item in obj.items.all()
         )
+
+class PaymentSerializers(serializers.ModelSerializer):
+    class Meta:
+        model= Payment
+        fields = "__all__"
+        read_only_fields = [
+            "status",
+            "paid_at"
+        ]
