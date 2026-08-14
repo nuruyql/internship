@@ -6,7 +6,7 @@ from .permissions import IsOwnerOrReadOnly, IsAdminOrReadOnly,IsReviewOwnerOrRea
 from .serializers import *
 from .models import *
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError,PermissionDenied
 from django.db.models import  Avg
 from django.db import transaction
 from django.utils import timezone
@@ -90,10 +90,15 @@ class OrderViewSet(ModelViewSet):
     permission_classes=[IsAuthenticated]
 
     def get_queryset(self):
-        return Order.objects.filter(
-            user=self.request.user
-        ).prefetch_related("items")
+        queryset = Order.objects.prefetch_related("items")
 
+
+        if self.request.user.is_staff:
+            return queryset
+
+        return queryset.filter(
+            user=self.request.user
+        )
     @transaction.atomic
     def perform_create(self,serializer):
         try:
@@ -145,16 +150,66 @@ class OrderViewSet(ModelViewSet):
         cart_items.delete()
 
 
+    @action(
+        detail=True,
+        methods="patch",
+        url_name="status"
+    )
+
+    def change_status(self,request,pk=None):
+        if not request.user.is_staff:
+            raise PermissionDenied(
+                "Get out homeless"
+            )
+
+        order = self.get_object()
+
+        new_status = request.data.get("status")
+
+
+        transitions = {
+            "pending":["processing","cancelled"],
+            "processing":["shipped","cancelled"],
+            "shipped":["delivered"],
+            "cancelled":[],
+            "delivered":[]
+        }
+
+        allowed_statues = transitions.get(order.status, [])
+
+
+        if new_status not in allowed_statues:
+            raise ValidationError({
+                "status":(
+                    f"you cant change from {order.status} to {new_status}"
+                )
+               
+            })
+
+        order.status = new_status
+        order.save(update_fields=["status"])
+
+
+        return Response(
+            self.get_serializer(order).data,
+            status=status.HTTP_200_OK
+        )
+
+
 
 class PaymentViewSet(ModelViewSet):
     serializer_class= PaymentSerializers
     permission_classes=[IsAuthenticated]
 
     def get_queryset(self):
-        return Payment.objects.filter(
-            order__user=self.request.user
-        ).select_related("order")
+        queryset = Payment.objects.select_related("order")
 
+        if self.request.user.is_staff:
+            return queryset
+
+        return queryset.filter(
+            user=self.request.user
+        )
     def perform_create(self, serializer):
         order = serializer.validated_data["order"]
 
