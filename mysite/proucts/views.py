@@ -84,6 +84,12 @@ class CartItemViewSet(ModelViewSet):
         )
         serializer.save(cart=cart)
 
+    def create(self, request, *args, **kwargs):
+        print("REQUEST USER:", request.user)
+        print("AUTH:", request.user.is_authenticated)
+
+        return super().create(request, *args, **kwargs)
+
 
 class OrderViewSet(ModelViewSet):
     serializer_class = OrderSerializers
